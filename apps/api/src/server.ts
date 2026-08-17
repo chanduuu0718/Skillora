@@ -18,12 +18,15 @@ await app.register(helmet);
 await app.register(cookie);
 await app.register(cors, { origin: config.WEB_ORIGIN, credentials: true });
 await app.register(rateLimit, { max: 120, timeWindow: '1 minute' });
-await app.register(jwt, { secret: config.JWT_SECRET });
+await app.register(jwt, {
+  secret: config.JWT_SECRET,
+  cookie: { cookieName: 'skillora_session', signed: false },
+});
 await app.register(rawBody, { field: 'rawBody', global: false, encoding: 'utf8', runFirst: true });
 await app.register(multipart, { limits: { fileSize: 20 * 1024 * 1024 } });
 
 app.decorate('authenticate', async (request, reply) => {
-  try { await request.jwtVerify({ onlyCookie: true, cookie: 'skillora_session' }); }
+  try { await request.jwtVerify(); }
   catch { return reply.code(401).send({ message: 'Authentication required.' }); }
 });
 
