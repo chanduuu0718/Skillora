@@ -1,0 +1,82 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  CUSTOMER
+  ADMIN
+}
+
+enum OrderStatus {
+  CREATED
+  PAID
+  FAILED
+  REFUNDED
+}
+
+model User {
+  id           String     @id @default(cuid())
+  name         String
+  email        String     @unique
+  passwordHash String
+  role         Role       @default(CUSTOMER)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  orders       Order[]
+  entitlements Entitlement[]
+}
+
+model Product {
+  id           String     @id @default(cuid())
+  slug         String     @unique
+  title        String
+  description  String
+  pricePaise   Int
+  coverUrl     String?
+  fileKey      String?
+  published    Boolean    @default(false)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  orderItems   OrderItem[]
+  entitlements Entitlement[]
+}
+
+model Order {
+  id                String      @id @default(cuid())
+  userId            String
+  razorpayOrderId   String?     @unique
+  razorpayPaymentId String?     @unique
+  amountPaise       Int
+  currency          String      @default("INR")
+  status            OrderStatus @default(CREATED)
+  createdAt         DateTime    @default(now())
+  paidAt            DateTime?
+  user              User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items             OrderItem[]
+}
+
+model OrderItem {
+  id        String  @id @default(cuid())
+  orderId   String
+  productId String
+  pricePaise Int
+  order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product   Product @relation(fields: [productId], references: [id])
+  @@unique([orderId, productId])
+}
+
+model Entitlement {
+  id         String   @id @default(cuid())
+  userId     String
+  productId  String
+  orderId    String
+  grantedAt  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product    Product  @relation(fields: [productId], references: [id])
+  @@unique([userId, productId])
+}
