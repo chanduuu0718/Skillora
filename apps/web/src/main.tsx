@@ -1,8 +1,9 @@
 import { StrictMode, type FormEvent, useEffect, useMemo, useState } from 'react';
-import { createRoot } from 'react-dom/client';
 import { ArrowRight, Check, Download, LogOut, Menu, ShieldCheck, Sparkles, X } from 'lucide-react';
+import { createRoot } from 'react-dom/client';
 import './styles.css';
 import { api, type Product, type User } from './lib/api';
+import { AdminPanel } from './components/AdminPanel';
 
 declare global {
   interface Window {
@@ -29,6 +30,7 @@ function App() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [adminOpen, setAdminOpen] = useState(false);
 
   useEffect(() => {
     api.products().then(setProducts).catch(() => setMessage('Products are temporarily unavailable.'));
@@ -41,7 +43,7 @@ function App() {
 
   const owned = useMemo(() => new Set(purchases.map((item) => item.product.id)), [purchases]);
 
-  async function handleLogout() { await api.logout(); setUser(null); setPurchases([]); }
+  async function handleLogout() { await api.logout(); setUser(null); setPurchases([]); setAdminOpen(false); }
 
   async function buy(product: Product) {
     if (!user) return setAuthMode('login');
@@ -63,6 +65,8 @@ function App() {
     } catch (error) { setMessage(error instanceof Error ? error.message : 'Checkout failed.'); setBusy(false); }
   }
 
+  if (adminOpen && user?.role === 'ADMIN') return <main className="app-shell"><AdminPanel onBack={() => setAdminOpen(false)} /></main>;
+
   return (
     <main className="app-shell">
       <nav className="topbar">
@@ -71,7 +75,7 @@ function App() {
         <div className={`nav-links ${mobileOpen ? 'mobile-open' : ''}`}>
           <a href="#products" onClick={() => setMobileOpen(false)}>Explore</a><a href="#how-it-works" onClick={() => setMobileOpen(false)}>How it works</a>{user && <a href="#library" onClick={() => setMobileOpen(false)}>My Library</a>}
         </div>
-        <div className="nav-actions">{user ? <><span className="user-pill">{user.name.split(' ')[0]}</span><button className="ghost-button" onClick={handleLogout}><LogOut size={16} /> Sign out</button></> : <><button className="ghost-button" onClick={() => setAuthMode('login')}>Log in</button><button className="primary-button" onClick={() => setAuthMode('register')}>Create account</button></>}</div>
+        <div className="nav-actions">{user ? <><span className="user-pill">{user.name.split(' ')[0]}</span>{user.role === 'ADMIN' && <button className="ghost-button" onClick={() => setAdminOpen(true)}>Admin</button>}<button className="ghost-button" onClick={handleLogout}><LogOut size={16} /> Sign out</button></> : <><button className="ghost-button" onClick={() => setAuthMode('login')}>Log in</button><button className="primary-button" onClick={() => setAuthMode('register')}>Create account</button></>}</div>
       </nav>
 
       <section className="hero" id="top"><div className="hero-glow hero-glow-one" /><div className="hero-glow hero-glow-two" /><div className="hero-copy">
@@ -86,7 +90,7 @@ function App() {
 
       <section className="how-section" id="how-it-works"><div className="section-kicker">HOW SKILLORA WORKS</div><h2>Simple for customers. Powerful behind the scenes.</h2><div className="steps"><div className="step"><span>01</span><h3>Discover</h3><p>Find a resource built around a real goal or problem.</p></div><div className="step"><span>02</span><h3>Checkout</h3><p>Pay securely through Razorpay in a few clicks.</p></div><div className="step"><span>03</span><h3>Access</h3><p>Your purchase is automatically attached to your account.</p></div></div></section>
 
-      {user && <section className="section library-section" id="library"><div className="section-heading"><div><div className="section-kicker">YOUR LIBRARY</div><h2>Everything you've unlocked.</h2></div></div>{purchases.length ? <div className="library-grid">{purchases.map((item) => <article className="library-card" key={item.id}><div className="library-icon"><Download size={21} /></div><div><h3>{item.product.title}</h3><p>Purchased {new Date(item.grantedAt).toLocaleDateString('en-IN')}</p></div><button className="secondary-button" disabled={!item.product.coverUrl}>Open resource</button></article>)}</div> : <div className="empty-state"><h3>Your library is waiting.</h3><p>Purchase a resource and it will appear here automatically.</p></div>}</section>}
+      {user && <section className="section library-section" id="library"><div className="section-heading"><div><div className="section-kicker">YOUR LIBRARY</div><h2>Everything you've unlocked.</h2></div></div>{purchases.length ? <div className="library-grid">{purchases.map((item) => <article className="library-card" key={item.id}><div className="library-icon"><Download size={21} /></div><div><h3>{item.product.title}</h3><p>Purchased {new Date(item.grantedAt).toLocaleDateString('en-IN')}</p></div><button className="secondary-button" onClick={() => api.downloadResource(item.product.id).catch((error) => setMessage(error instanceof Error ? error.message : 'Download failed.'))}>Download PDF</button></article>)}</div> : <div className="empty-state"><h3>Your library is waiting.</h3><p>Purchase a resource and it will appear here automatically.</p></div>}</section>}
       <footer className="footer"><div className="brand"><span className="brand-mark">S</span><span>Skillora</span></div><p>Learn. Prepare. Grow.</p></footer>
       {authMode && <AuthModal mode={authMode} onClose={() => setAuthMode(null)} onSuccess={(nextUser) => { setUser(nextUser); setAuthMode(null); }} />}
     </main>
