@@ -19,6 +19,22 @@ export const api = {
   purchases: () => request<Array<{ id: string; product: Product; grantedAt: string }>>('/me/purchases'),
   createOrder: (productId: string) => request<{ orderId: string; razorpayOrderId: string; keyId: string; amountPaise: number; currency: string; product: { id: string; title: string } }>('/payments/create-order', { method: 'POST', body: JSON.stringify({ productId }) }),
   verifyPayment: (payload: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) => request<{ ok: true }>('/payments/verify', { method: 'POST', body: JSON.stringify({ razorpayOrderId: payload.razorpay_order_id, razorpayPaymentId: payload.razorpay_payment_id, razorpaySignature: payload.razorpay_signature }) }),
+  downloadResource: async (productId: string) => {
+    const response = await fetch(`${API_URL}/products/${productId}/download`, { credentials: 'include' });
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      throw new Error(data.message ?? 'Download failed.');
+    }
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = 'skillora-resource.pdf';
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
+  },
   adminProducts: () => request<Product[]>('/admin/products'),
   adminCreateProduct: (payload: { title: string; slug: string; description: string; pricePaise: number; published: boolean }) => request<Product>('/admin/products', { method: 'POST', body: JSON.stringify(payload) }),
   adminUploadPdf: async (productId: string, file: File) => {
