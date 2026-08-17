@@ -1,0 +1,18 @@
+{
+  "name": "skillora",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Skillora digital products marketplace",
+  "workspaces": ["apps/web", "apps/api"],
+  "scripts": {
+    "dev": "concurrently \"npm run dev --workspace apps/web\" \"npm run dev --workspace apps/api\"",
+    "dev:web": "npm run dev --workspace apps/web",
+    "dev:api": "npm run dev --workspace apps/api",
+    "build": "npm run build --workspace apps/web && npm run build --workspace apps/api",
+    "typecheck": "npm run typecheck --workspace apps/web && npm run typecheck --workspace apps/api",
+    "lint": "npm run lint --workspace apps/web && npm run lint --workspace apps/api"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}
