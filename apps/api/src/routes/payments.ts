@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
 import Razorpay from 'razorpay';
 import { z } from 'zod';
+import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
 import { config } from '../lib/config.js';
 
@@ -15,7 +16,7 @@ function safeCompare(a: string, b: string) {
 }
 
 async function grantOrderAccess(orderId: string, paymentId: string) {
-  return prisma.$transaction(async (tx) => {
+  return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     const order = await tx.order.update({
       where: { id: orderId },
       data: { status: 'PAID', razorpayPaymentId: paymentId, paidAt: new Date() },
