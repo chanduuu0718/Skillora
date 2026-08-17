@@ -1,44 +1,62 @@
 # Skillora
 
-A premium digital-products marketplace for selling downloadable resources with secure user access and automated payments.
+Skillora is a production-style digital-products marketplace for selling downloadable resources with secure customer access and automated payments.
 
-## Product vision
+## Current build
 
-Skillora is being built as a production-style platform with:
+- Premium responsive storefront with custom high-tech visual system
+- Customer registration, login, logout and persistent purchase library
+- PostgreSQL + Prisma commerce schema
+- Product catalogue and admin product management API
+- Admin workspace for creating products and uploading PDFs
+- Private PDF storage with entitlement-checked downloads
+- Razorpay test-mode order creation, signature verification and webhook fulfillment
+- Server-side order/payment records and automatic entitlements
+- Helmet, CORS, rate limiting and environment validation
+- GitHub Actions typecheck/build pipeline
 
-- Premium, high-tech, accessible UI
-- Customer accounts and authentication
-- Product catalogue and product details
-- Secure digital-product delivery
-- Orders and purchase history
-- Razorpay payment integration (test mode first)
-- Webhook-driven payment confirmation
-- Admin dashboard for products, files, orders and customers
-- Responsive desktop/mobile experience
-- SEO-ready public pages
+## Architecture
 
-## Planned architecture
+```text
+apps/web  -> React + TypeScript + Vite
+apps/api  -> Fastify + TypeScript
+Database  -> PostgreSQL + Prisma
+Payments  -> Razorpay
+Files     -> private local storage in development; object storage can be swapped in for production
+```
 
-- Web app: React + TypeScript + Vite
-- API: Node.js + TypeScript
-- Database: PostgreSQL + Prisma
-- Authentication: secure session/JWT-based auth with server-side authorization
-- Payments: Razorpay
-- Digital files: private object/file storage; never committed to Git
-- Validation: Zod
-- UI: custom design system with Tailwind CSS and accessible primitives
+## Run on Windows
 
-## Security principles
+Requirements: Node.js 22+ and PostgreSQL.
 
-- Never commit API keys, database passwords, JWT secrets, or paid PDFs.
-- Payment confirmation is performed server-side and must not trust frontend success alone.
-- Paid files are only accessible to authorized purchasers.
-- Razorpay webhook signatures are verified before fulfilling orders.
+```powershell
+npm install
+Copy-Item apps/api/.env.example apps/api/.env
+npm run db:generate --workspace apps/api
+npm run db:push --workspace apps/api
+npm run db:seed --workspace apps/api
+npm run dev
+```
 
-## Environment variables
+The web app runs on `http://localhost:5173` and the API on `http://localhost:4000` by default.
 
-Keep secrets in local `.env` files or the deployment platform's secret manager. See the `.env.example` files when they are added.
+The seed creates a development admin account:
 
-## Development status
+- Email: `admin@skillora.local`
+- Password: `ChangeMe123!`
 
-Initial repository foundation created. Feature implementation will proceed incrementally so each layer can be tested before moving to the next.
+Change the development password before using any shared environment.
+
+## Razorpay setup
+
+Development uses Razorpay Test Mode. Add the test credentials to `apps/api/.env`. Never commit the `.env` file or live keys.
+
+Live payments require the account owner's Razorpay onboarding/KYC, bank verification and live API credentials. The application itself is designed to switch from test to live credentials without changing the checkout architecture.
+
+## Security rules
+
+- Never commit API keys, database passwords, JWT secrets or paid PDFs.
+- Payment fulfillment is server-side and protected by signature verification.
+- Webhook signatures are verified before granting entitlements.
+- Paid PDF downloads require an authenticated account with a matching entitlement.
+- Production should use private object storage rather than a local filesystem.
