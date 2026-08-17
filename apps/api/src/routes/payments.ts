@@ -2,7 +2,7 @@ import crypto from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
 import Razorpay from 'razorpay';
 import { z } from 'zod';
-import { Prisma } from '@prisma/client';
+import type { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
 import { config } from '../lib/config.js';
 
