@@ -16,7 +16,7 @@ export async function productRoutes(app: FastifyInstance) {
   app.get('/products/:slug', async (request, reply) => {
     const parsed = slug.safeParse((request.params as { slug: string }).slug);
     if (!parsed.success) return reply.code(400).send({ message: 'Invalid product.' });
-    const product = await prisma.product.findUnique({
+    const product = await prisma.product.findFirst({
       where: { slug: parsed.data, published: true },
       select: { id: true, slug: true, title: true, description: true, pricePaise: true, coverUrl: true },
     });
