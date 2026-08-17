@@ -4,7 +4,7 @@ import cookie from '@fastify/cookie';
 import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
 import jwt from '@fastify/jwt';
-import rawBody from '@fastify/raw-body';
+import rawBody from 'fastify-raw-body';
 import multipart from '@fastify/multipart';
 import { config } from './lib/config.js';
 import { authRoutes } from './routes/auth.js';
