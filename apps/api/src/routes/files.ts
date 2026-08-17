@@ -1,4 +1,4 @@
-import { createWriteStream } from 'node:fs';
+import { createReadStream, createWriteStream } from 'node:fs';
 import { mkdir } from 'node:fs/promises';
 import { pipeline } from 'node:stream/promises';
 import path from 'node:path';
@@ -22,11 +22,9 @@ export async function fileRoutes(app: FastifyInstance) {
     const file = await request.file();
     if (!file) return reply.code(400).send({ message: 'PDF file is required.' });
     if (file.mimetype !== 'application/pdf') return reply.code(400).send({ message: 'Only PDF files are accepted.' });
-
     await mkdir(storageRoot, { recursive: true });
     const fileKey = `${productId}-${crypto.randomUUID()}.pdf`;
-    const destination = path.join(storageRoot, fileKey);
-    await pipeline(file.file, createWriteStream(destination));
+    await pipeline(file.file, createWriteStream(path.join(storageRoot, fileKey)));
     await prisma.product.update({ where: { id: productId }, data: { fileKey } });
     return reply.send({ fileKey, message: 'PDF stored securely.' });
   });
@@ -37,6 +35,7 @@ export async function fileRoutes(app: FastifyInstance) {
     if (!entitlement?.product.fileKey) return reply.code(404).send({ message: 'Your purchased file is not available yet.' });
     const filePath = path.resolve(storageRoot, entitlement.product.fileKey);
     if (!filePath.startsWith(`${storageRoot}${path.sep}`)) return reply.code(400).send({ message: 'Invalid file.' });
-    return reply.download ? reply.download(filePath, entitlement.product.title) : reply.sendFile(filePath);
+    const safeName = entitlement.product.title.replace(/[^a-z0-9-_ ]/gi, '').trim() || 'skillora-resource';
+    return reply.type('application/pdf').header('Content-Disposition', `attachment; filename="${safeName}.pdf"`).send(createReadStream(filePath));
   });
 }
