@@ -1,18 +1,30 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
+import cookie from '@fastify/cookie';
 import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
+import jwt from '@fastify/jwt';
+import rawBody from '@fastify/raw-body';
+import { config } from './lib/config.js';
+import { authRoutes } from './routes/auth.js';
+import { productRoutes } from './routes/products.js';
+import { paymentRoutes } from './routes/payments.js';
 
 const app = Fastify({ logger: true });
 
 await app.register(helmet);
-await app.register(cors, {
-  origin: process.env.WEB_ORIGIN ?? 'http://localhost:5173',
-  credentials: true,
-});
-await app.register(rateLimit, {
-  max: 120,
-  timeWindow: '1 minute',
+await app.register(cookie);
+await app.register(cors, { origin: config.WEB_ORIGIN, credentials: true });
+await app.register(rateLimit, { max: 120, timeWindow: '1 minute' });
+await app.register(jwt, { secret: config.JWT_SECRET });
+await app.register(rawBody, { field: 'rawBody', global: false, encoding: 'utf8', runFirst: true });
+
+app.decorate('authenticate', async (request, reply) => {
+  try {
+    await request.jwtVerify({ onlyCookie: true, cookie: 'skillora_session' });
+  } catch {
+    return reply.code(401).send({ message: 'Authentication required.' });
+  }
 });
 
 app.get('/health', async () => ({
@@ -21,11 +33,12 @@ app.get('/health', async () => ({
   timestamp: new Date().toISOString(),
 }));
 
-const port = Number(process.env.PORT ?? 4000);
-const host = process.env.HOST ?? '0.0.0.0';
+await app.register(authRoutes, { prefix: '/api' });
+await app.register(productRoutes, { prefix: '/api' });
+await app.register(paymentRoutes, { prefix: '/api', config: { rawBody: true } });
 
 try {
-  await app.listen({ port, host });
+  await app.listen({ port: config.PORT, host: '0.0.0.0' });
 } catch (error) {
   app.log.error(error);
   process.exit(1);
