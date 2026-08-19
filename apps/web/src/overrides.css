@@ -1,0 +1,30 @@
+/* Skillora visual system: light-gray canvas, crisp white surfaces, motion-first controls. */
+:root { --page-gray: #eef1ef; --motion: cubic-bezier(.2,.75,.2,1); }
+body { background: var(--page-gray); }
+.app-shell { background: linear-gradient(180deg, #f7f8f7 0%, #eef1ef 55%, #e8ecea 100%); }
+.hero { background: #f7f8f7; }
+.section { background: transparent; }
+.how-section { background: #e8ecea; }
+.admin-page { background: #e9edeb; }
+.primary-button,.secondary-button,.ghost-button,.card-button,.card-link,.status-button,.upload-button,.preview-button,.admin-back { transition: transform .22s var(--motion), box-shadow .22s var(--motion), background-color .22s ease, border-color .22s ease, color .22s ease; }
+.primary-button:hover,.secondary-button:hover,.card-button:hover,.status-button:hover,.upload-button:hover,.preview-button:hover { transform: translateY(-2px); box-shadow: 0 10px 24px rgba(25,55,47,.12); }
+.ghost-button:hover,.card-link:hover,.admin-back:hover { transform: translateY(-1px); }
+.primary-button:active,.secondary-button:active,.card-button:active,.status-button:active,.upload-button:active,.preview-button:active { transform: translateY(1px) scale(.98); }
+.product-card,.library-card,.admin-form,.admin-products,.hero-card,.auth-modal,.admin-stat,.overview-card { transition: transform .25s var(--motion), box-shadow .25s var(--motion), border-color .25s ease; }
+.product-card:hover,.library-card:hover,.overview-card:hover { transform: translateY(-4px); box-shadow: 0 18px 42px rgba(31,55,48,.10); }
+.product-orbit { animation: skillora-float 5s ease-in-out infinite; }
+.eyebrow-dot { animation: skillora-pulse 2s ease-in-out infinite; }
+.admin-overview { max-width:1250px; margin:0 auto 22px; display:grid; grid-template-columns:repeat(4,1fr); gap:14px; }
+.overview-card { background:#fff; border:1px solid #dce5e1; border-radius:18px; padding:18px; display:grid; grid-template-columns:auto 1fr; column-gap:10px; box-shadow:0 8px 28px rgba(34,57,50,.04); }
+.overview-card svg { grid-row:span 3; color:#176b61; margin-top:3px; }
+.overview-card span { color:#728079; font-size:11px; text-transform:uppercase; letter-spacing:.08em; }
+.overview-card strong { font:700 25px 'Space Grotesk'; color:#17251f; }
+.overview-card small { color:#9aa59f; font-size:11px; }
+.preview-button { border:1px solid #d5e2dc; border-radius:11px; padding:9px 11px; background:#f6faf8; color:#176b61; cursor:pointer; display:inline-flex; align-items:center; gap:7px; font:600 13px 'DM Sans'; }
+.preview-button:disabled { opacity:.6; cursor:wait; }
+@keyframes skillora-float { 0%,100% { transform:translateY(0); } 50% { transform:translateY(-7px); } }
+@keyframes skillora-pulse { 0%,100% { box-shadow:0 0 0 0 rgba(23,107,97,.15); } 50% { box-shadow:0 0 0 7px rgba(23,107,97,0); } }
+@media(max-width:1000px){ .admin-overview { grid-template-columns:repeat(2,1fr); } }
+@media(max-width:700px){ .admin-overview { grid-template-columns:1fr 1fr; } }
+@media(max-width:460px){ .admin-overview { grid-template-columns:1fr; } }
+@media(prefers-reduced-motion:reduce){ *,*::before,*::after { animation-duration:.01ms!important; animation-iteration-count:1!important; transition-duration:.01ms!important; scroll-behavior:auto!important; } }
