@@ -13,5 +13,11 @@ export async function adminRoutes(app: FastifyInstance) {
   app.get('/admin/products', { preHandler: (request, reply) => requireAdmin(app, request, reply) }, async () => prisma.product.findMany({ orderBy: { createdAt: 'desc' } }));
   app.post('/admin/products', { preHandler: (request, reply) => requireAdmin(app, request, reply) }, async (request, reply) => { const parsed = productInput.safeParse(request.body); if (!parsed.success) return reply.code(400).send({ message: 'Invalid product details.', issues: parsed.error.issues }); return reply.code(201).send(await prisma.product.create({ data: parsed.data })); });
   app.patch('/admin/products/:id', { preHandler: (request, reply) => requireAdmin(app, request, reply) }, async (request, reply) => { const id = (request.params as { id: string }).id; const parsed = productInput.partial().safeParse(request.body); if (!parsed.success) return reply.code(400).send({ message: 'Invalid product details.', issues: parsed.error.issues }); return reply.send(await prisma.product.update({ where: { id }, data: parsed.data })); });
-  app.delete('/admin/products/:id', { preHandler: (request, reply) => requireAdmin(app, request, reply) }, async (request, reply) => { await prisma.product.delete({ where: { id: (request.params as { id: string }).id } }); return reply.code(204).send(); });
+  app.delete('/admin/products/:id', { preHandler: (request, reply) => requireAdmin(app, request, reply) }, async (request, reply) => {
+    const id = (request.params as { id: string }).id;
+    const [orders, entitlements] = await Promise.all([prisma.orderItem.count({ where: { productId: id } }), prisma.entitlement.count({ where: { productId: id } })]);
+    if (orders || entitlements) return reply.code(409).send({ message: 'This product has purchase history and cannot be deleted. Unpublish it and remove/replace its PDF instead.' });
+    await prisma.product.delete({ where: { id } });
+    return reply.code(204).send();
+  });
 }
