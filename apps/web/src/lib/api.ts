@@ -3,6 +3,8 @@ const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:4000/api';
 export type User = { id: string; name: string; email: string; role: 'CUSTOMER' | 'ADMIN' };
 export type Product = { id: string; slug: string; title: string; description: string; pricePaise: number; coverUrl?: string | null; fileKey?: string | null; published?: boolean };
 export type AdminOverview = { products: number; customers: number; paidOrders: number; revenuePaise: number };
+export type AdminOrder = { id: string; amountPaise: number; currency: string; status: string; createdAt: string; paidAt?: string | null; user: { id: string; name: string; email: string }; items: Array<{ product: { id: string; title: string; slug: string }; pricePaise: number }> };
+export type AdminCustomer = { id: string; name: string; email: string; createdAt: string; orders: number; resourcesOwned: number };
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const response = await fetch(`${API_URL}${path}`, { credentials: 'include', headers: { 'Content-Type': 'application/json', ...(options.headers ?? {}) }, ...options });
@@ -26,6 +28,8 @@ export const api = {
     const blob = await response.blob(); const url = URL.createObjectURL(blob); const anchor = document.createElement('a'); anchor.href = url; anchor.download = 'skillora-resource.pdf'; document.body.appendChild(anchor); anchor.click(); anchor.remove(); URL.revokeObjectURL(url);
   },
   adminOverview: () => request<AdminOverview>('/admin/overview'),
+  adminOrders: () => request<AdminOrder[]>('/admin/orders'),
+  adminCustomers: () => request<AdminCustomer[]>('/admin/customers'),
   adminProducts: () => request<Product[]>('/admin/products'),
   adminCreateProduct: (payload: { title: string; slug: string; description: string; pricePaise: number; coverUrl?: string; published: boolean }) => request<Product>('/admin/products', { method: 'POST', body: JSON.stringify(payload) }),
   adminUpdateProduct: (id: string, payload: Partial<{ title: string; slug: string; description: string; pricePaise: number; coverUrl: string | null; published: boolean }>) => request<Product>(`/admin/products/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
