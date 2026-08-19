@@ -14,6 +14,14 @@ async function requireAdmin(app: FastifyInstance, request: any, reply: any) {
   if (request.user.role !== 'ADMIN') return reply.code(403).send({ message: 'Admin access required.' });
 }
 
+async function sendPdf(product: { title: string; fileKey: string | null }, reply: any) {
+  if (!product.fileKey) return reply.code(404).send({ message: 'PDF has not been uploaded yet.' });
+  const filePath = path.resolve(storageRoot, product.fileKey);
+  if (!filePath.startsWith(`${storageRoot}${path.sep}`)) return reply.code(400).send({ message: 'Invalid file.' });
+  const safeName = product.title.replace(/[^a-z0-9-_ ]/gi, '').trim() || 'skillora-resource';
+  return reply.type('application/pdf').header('Content-Disposition', `inline; filename="${safeName}.pdf"`).send(createReadStream(filePath));
+}
+
 export async function fileRoutes(app: FastifyInstance) {
   app.post('/admin/products/:id/file', { preHandler: (request, reply) => requireAdmin(app, request, reply) }, async (request, reply) => {
     const productId = (request.params as { id: string }).id;
@@ -27,6 +35,12 @@ export async function fileRoutes(app: FastifyInstance) {
     await pipeline(file.file, createWriteStream(path.join(storageRoot, fileKey)));
     await prisma.product.update({ where: { id: productId }, data: { fileKey } });
     return reply.send({ fileKey, message: 'PDF stored securely.' });
+  });
+
+  app.get('/admin/products/:id/preview', { preHandler: (request, reply) => requireAdmin(app, request, reply) }, async (request, reply) => {
+    const product = await prisma.product.findUnique({ where: { id: (request.params as { id: string }).id }, select: { title: true, fileKey: true } });
+    if (!product) return reply.code(404).send({ message: 'Product not found.' });
+    return sendPdf(product, reply);
   });
 
   app.get('/products/:id/download', { preHandler: app.authenticate }, async (request, reply) => {
