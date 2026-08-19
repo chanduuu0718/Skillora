@@ -10,6 +10,17 @@ export async function adminRoutes(app: FastifyInstance) {
     const [products, customers, paidOrders, revenue] = await Promise.all([prisma.product.count(), prisma.user.count({ where: { role: 'CUSTOMER' } }), prisma.order.count({ where: { status: 'PAID' } }), prisma.order.aggregate({ where: { status: 'PAID' }, _sum: { amountPaise: true } })]);
     return { products, customers, paidOrders, revenuePaise: revenue._sum.amountPaise ?? 0 };
   });
+
+  app.get('/admin/orders', { preHandler: (request, reply) => requireAdmin(app, request, reply) }, async () => {
+    const orders = await prisma.order.findMany({ where: { status: 'PAID' }, orderBy: { createdAt: 'desc' }, take: 50, select: { id: true, amountPaise: true, currency: true, status: true, createdAt: true, paidAt: true, user: { select: { id: true, name: true, email: true } }, items: { select: { product: { select: { id: true, title: true, slug: true } }, pricePaise: true } } } });
+    return orders;
+  });
+
+  app.get('/admin/customers', { preHandler: (request, reply) => requireAdmin(app, request, reply) }, async () => {
+    const customers = await prisma.user.findMany({ where: { role: 'CUSTOMER' }, orderBy: { createdAt: 'desc' }, take: 100, select: { id: true, name: true, email: true, createdAt: true, _count: { select: { orders: true, entitlements: true } } } });
+    return customers.map(({ _count, ...customer }) => ({ ...customer, orders: _count.orders, resourcesOwned: _count.entitlements }));
+  });
+
   app.get('/admin/products', { preHandler: (request, reply) => requireAdmin(app, request, reply) }, async () => prisma.product.findMany({ orderBy: { createdAt: 'desc' } }));
   app.post('/admin/products', { preHandler: (request, reply) => requireAdmin(app, request, reply) }, async (request, reply) => { const parsed = productInput.safeParse(request.body); if (!parsed.success) return reply.code(400).send({ message: 'Invalid product details.', issues: parsed.error.issues }); return reply.code(201).send(await prisma.product.create({ data: parsed.data })); });
   app.patch('/admin/products/:id', { preHandler: (request, reply) => requireAdmin(app, request, reply) }, async (request, reply) => { const id = (request.params as { id: string }).id; const parsed = productInput.partial().safeParse(request.body); if (!parsed.success) return reply.code(400).send({ message: 'Invalid product details.', issues: parsed.error.issues }); return reply.send(await prisma.product.update({ where: { id }, data: parsed.data })); });
