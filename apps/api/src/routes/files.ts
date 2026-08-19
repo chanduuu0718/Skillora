@@ -1,5 +1,5 @@
 import { createReadStream, createWriteStream } from 'node:fs';
-import { mkdir } from 'node:fs/promises';
+import { mkdir, unlink } from 'node:fs/promises';
 import { pipeline } from 'node:stream/promises';
 import path from 'node:path';
 import crypto from 'node:crypto';
@@ -33,6 +33,7 @@ export async function fileRoutes(app: FastifyInstance) {
     await mkdir(storageRoot, { recursive: true });
     const fileKey = `${productId}-${crypto.randomUUID()}.pdf`;
     await pipeline(file.file, createWriteStream(path.join(storageRoot, fileKey)));
+    if (product.fileKey) await unlink(path.join(storageRoot, product.fileKey)).catch(() => undefined);
     await prisma.product.update({ where: { id: productId }, data: { fileKey } });
     return reply.send({ fileKey, message: 'PDF stored securely.' });
   });
@@ -41,6 +42,14 @@ export async function fileRoutes(app: FastifyInstance) {
     const product = await prisma.product.findUnique({ where: { id: (request.params as { id: string }).id }, select: { title: true, fileKey: true } });
     if (!product) return reply.code(404).send({ message: 'Product not found.' });
     return sendPdf(product, reply);
+  });
+
+  app.delete('/admin/products/:id/file', { preHandler: (request, reply) => requireAdmin(app, request, reply) }, async (request, reply) => {
+    const product = await prisma.product.findUnique({ where: { id: (request.params as { id: string }).id }, select: { fileKey: true } });
+    if (!product) return reply.code(404).send({ message: 'Product not found.' });
+    if (product.fileKey) await unlink(path.join(storageRoot, product.fileKey)).catch(() => undefined);
+    await prisma.product.update({ where: { id: (request.params as { id: string }).id }, data: { fileKey: null } });
+    return reply.send({ ok: true, message: 'PDF removed from this resource.' });
   });
 
   app.get('/products/:id/download', { preHandler: app.authenticate }, async (request, reply) => {
