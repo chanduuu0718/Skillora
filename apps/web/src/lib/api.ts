@@ -27,8 +27,8 @@ export const api = {
   },
   adminOverview: () => request<AdminOverview>('/admin/overview'),
   adminProducts: () => request<Product[]>('/admin/products'),
-  adminCreateProduct: (payload: { title: string; slug: string; description: string; pricePaise: number; published: boolean }) => request<Product>('/admin/products', { method: 'POST', body: JSON.stringify(payload) }),
-  adminUpdateProduct: (id: string, payload: Partial<{ title: string; slug: string; description: string; pricePaise: number; published: boolean }>) => request<Product>(`/admin/products/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
+  adminCreateProduct: (payload: { title: string; slug: string; description: string; pricePaise: number; coverUrl?: string; published: boolean }) => request<Product>('/admin/products', { method: 'POST', body: JSON.stringify(payload) }),
+  adminUpdateProduct: (id: string, payload: Partial<{ title: string; slug: string; description: string; pricePaise: number; coverUrl: string | null; published: boolean }>) => request<Product>(`/admin/products/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
   adminDeleteProduct: (id: string) => request<void>(`/admin/products/${id}`, { method: 'DELETE' }),
   adminUploadPdf: async (productId: string, file: File) => {
     const form = new FormData(); form.append('file', file, file.name);
