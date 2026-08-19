@@ -29,11 +29,13 @@ export const api = {
   adminProducts: () => request<Product[]>('/admin/products'),
   adminCreateProduct: (payload: { title: string; slug: string; description: string; pricePaise: number; published: boolean }) => request<Product>('/admin/products', { method: 'POST', body: JSON.stringify(payload) }),
   adminUpdateProduct: (id: string, payload: Partial<{ title: string; slug: string; description: string; pricePaise: number; published: boolean }>) => request<Product>(`/admin/products/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
+  adminDeleteProduct: (id: string) => request<void>(`/admin/products/${id}`, { method: 'DELETE' }),
   adminUploadPdf: async (productId: string, file: File) => {
     const form = new FormData(); form.append('file', file, file.name);
     const response = await fetch(`${API_URL}/admin/products/${productId}/file`, { method: 'POST', credentials: 'include', body: form });
     const data = await response.json().catch(() => ({})); if (!response.ok) throw new Error(data.message ?? 'Upload failed.'); return data as { fileKey: string; message: string };
   },
+  adminDeletePdf: () => request<void>(`/admin/products/${arguments[0]}/file`, { method: 'DELETE' }),
   adminPreviewResource: async (productId: string) => {
     const response = await fetch(`${API_URL}/admin/products/${productId}/preview`, { credentials: 'include' });
     if (!response.ok) { const data = await response.json().catch(() => ({})); throw new Error(data.message ?? 'Preview failed.'); }
