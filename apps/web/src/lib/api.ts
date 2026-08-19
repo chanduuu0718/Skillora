@@ -1,7 +1,7 @@
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:4000/api';
 
 export type User = { id: string; name: string; email: string; role: 'CUSTOMER' | 'ADMIN' };
-export type Product = { id: string; slug: string; title: string; description: string; pricePaise: number; coverUrl?: string | null; fileKey?: string | null };
+export type Product = { id: string; slug: string; title: string; description: string; pricePaise: number; coverUrl?: string | null; fileKey?: string | null; published?: boolean };
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const response = await fetch(`${API_URL}${path}`, { credentials: 'include', headers: { 'Content-Type': 'application/json', ...(options.headers ?? {}) }, ...options });
@@ -21,27 +21,15 @@ export const api = {
   verifyPayment: (payload: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) => request<{ ok: true }>('/payments/verify', { method: 'POST', body: JSON.stringify({ razorpayOrderId: payload.razorpay_order_id, razorpayPaymentId: payload.razorpay_payment_id, razorpaySignature: payload.razorpay_signature }) }),
   downloadResource: async (productId: string) => {
     const response = await fetch(`${API_URL}/products/${productId}/download`, { credentials: 'include' });
-    if (!response.ok) {
-      const data = await response.json().catch(() => ({}));
-      throw new Error(data.message ?? 'Download failed.');
-    }
-    const blob = await response.blob();
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = 'skillora-resource.pdf';
-    document.body.appendChild(anchor);
-    anchor.click();
-    anchor.remove();
-    URL.revokeObjectURL(url);
+    if (!response.ok) { const data = await response.json().catch(() => ({})); throw new Error(data.message ?? 'Download failed.'); }
+    const blob = await response.blob(); const url = URL.createObjectURL(blob); const anchor = document.createElement('a'); anchor.href = url; anchor.download = 'skillora-resource.pdf'; document.body.appendChild(anchor); anchor.click(); anchor.remove(); URL.revokeObjectURL(url);
   },
   adminProducts: () => request<Product[]>('/admin/products'),
   adminCreateProduct: (payload: { title: string; slug: string; description: string; pricePaise: number; published: boolean }) => request<Product>('/admin/products', { method: 'POST', body: JSON.stringify(payload) }),
+  adminUpdateProduct: (id: string, payload: Partial<{ title: string; slug: string; description: string; pricePaise: number; published: boolean }>) => request<Product>(`/admin/products/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
   adminUploadPdf: async (productId: string, file: File) => {
     const form = new FormData(); form.append('file', file, file.name);
     const response = await fetch(`${API_URL}/admin/products/${productId}/file`, { method: 'POST', credentials: 'include', body: form });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(data.message ?? 'Upload failed.');
-    return data as { fileKey: string; message: string };
+    const data = await response.json().catch(() => ({})); if (!response.ok) throw new Error(data.message ?? 'Upload failed.'); return data as { fileKey: string; message: string };
   },
 };
