@@ -5,102 +5,25 @@ import './styles.css';
 import { api, type Product, type User } from './lib/api';
 import { AdminPanel } from './components/AdminPanel';
 
-declare global {
-  interface Window {
-    Razorpay?: new (options: Record<string, unknown>) => { open: () => void };
-  }
-}
-
-function loadRazorpay() {
-  return new Promise<boolean>((resolve) => {
-    if (window.Razorpay) return resolve(true);
-    const script = document.createElement('script');
-    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
-    script.onload = () => resolve(true);
-    script.onerror = () => resolve(false);
-    document.body.appendChild(script);
-  });
-}
+declare global { interface Window { Razorpay?: new (options: Record<string, unknown>) => { open: () => void }; } }
+function loadRazorpay() { return new Promise<boolean>((resolve) => { if (window.Razorpay) return resolve(true); const script = document.createElement('script'); script.src = 'https://checkout.razorpay.com/v1/checkout.js'; script.onload = () => resolve(true); script.onerror = () => resolve(false); document.body.appendChild(script); }); }
 
 function App() {
-  const [products, setProducts] = useState<Product[]>([]);
-  const [user, setUser] = useState<User | null>(null);
-  const [purchases, setPurchases] = useState<Array<{ id: string; product: Product; grantedAt: string }>>([]);
-  const [authMode, setAuthMode] = useState<'login' | 'register' | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState('');
-  const [mobileOpen, setMobileOpen] = useState(false);
-  const [adminOpen, setAdminOpen] = useState(false);
-
-  useEffect(() => {
-    api.products().then(setProducts).catch(() => setMessage('Products are temporarily unavailable.'));
-    api.me().then(({ user: currentUser }) => setUser(currentUser)).catch(() => undefined);
-  }, []);
-
-  useEffect(() => {
-    if (user) api.purchases().then(setPurchases).catch(() => undefined);
-  }, [user]);
-
+  const [products, setProducts] = useState<Product[]>([]); const [user, setUser] = useState<User | null>(null); const [purchases, setPurchases] = useState<Array<{ id: string; product: Product; grantedAt: string }>>([]); const [authMode, setAuthMode] = useState<'login' | 'register' | null>(null); const [busy, setBusy] = useState(false); const [message, setMessage] = useState(''); const [mobileOpen, setMobileOpen] = useState(false); const [adminOpen, setAdminOpen] = useState(false);
+  useEffect(() => { api.products().then(setProducts).catch(() => setMessage('Products are temporarily unavailable.')); api.me().then(({ user: currentUser }) => setUser(currentUser)).catch(() => undefined); }, []);
+  useEffect(() => { if (user) api.purchases().then(setPurchases).catch(() => undefined); else setPurchases([]); }, [user]);
   const owned = useMemo(() => new Set(purchases.map((item) => item.product.id)), [purchases]);
-
-  async function handleLogout() { await api.logout(); setUser(null); setPurchases([]); setAdminOpen(false); }
-
-  async function buy(product: Product) {
-    if (!user) return setAuthMode('login');
-    setBusy(true); setMessage('');
-    try {
-      const ready = await loadRazorpay();
-      if (!ready || !window.Razorpay) throw new Error('Secure checkout could not load. Check your connection.');
-      const order = await api.createOrder(product.id);
-      const checkout = new window.Razorpay({
-        key: order.keyId, amount: order.amountPaise, currency: order.currency, name: 'Skillora', description: order.product.title,
-        order_id: order.razorpayOrderId, prefill: { name: user.name, email: user.email }, theme: { color: '#8b5cf6' },
-        handler: async (response: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) => {
-          try { await api.verifyPayment(response); setMessage('Payment successful. Your resource is now in My Library.'); setPurchases(await api.purchases()); }
-          catch (error) { setMessage(error instanceof Error ? error.message : 'Payment verification failed.'); }
-          setBusy(false);
-        }, modal: { ondismiss: () => setBusy(false) },
-      });
-      checkout.open();
-    } catch (error) { setMessage(error instanceof Error ? error.message : 'Checkout failed.'); setBusy(false); }
-  }
-
+  async function handleLogout() { try { await api.logout(); } catch { /* local session is cleared below even if the API is temporarily unavailable */ } finally { setUser(null); setPurchases([]); setAdminOpen(false); setMessage('Signed out successfully.'); } }
+  async function buy(product: Product) { if (!user) return setAuthMode('login'); setBusy(true); setMessage(''); try { const ready = await loadRazorpay(); if (!ready || !window.Razorpay) throw new Error('Secure checkout could not load. Check your connection.'); const order = await api.createOrder(product.id); const checkout = new window.Razorpay({ key: order.keyId, amount: order.amountPaise, currency: order.currency, name: 'Skillora', description: order.product.title, order_id: order.razorpayOrderId, prefill: { name: user.name, email: user.email }, theme: { color: '#176b61' }, handler: async (response: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) => { try { await api.verifyPayment(response); setMessage('Payment successful. Your resource is now in My Library.'); setPurchases(await api.purchases()); } catch (error) { setMessage(error instanceof Error ? error.message : 'Payment verification failed.'); } setBusy(false); }, modal: { ondismiss: () => setBusy(false) } }); checkout.open(); } catch (error) { setMessage(error instanceof Error ? error.message : 'Checkout failed.'); setBusy(false); } }
   if (adminOpen && user?.role === 'ADMIN') return <main className="app-shell"><AdminPanel onBack={() => setAdminOpen(false)} /></main>;
-
-  return (
-    <main className="app-shell">
-      <nav className="topbar">
-        <a className="brand" href="#top"><span className="brand-mark">S</span><span>Skillora</span></a>
-        <button className="mobile-menu" onClick={() => setMobileOpen((value) => !value)} aria-label="Open navigation"><Menu size={21} /></button>
-        <div className={`nav-links ${mobileOpen ? 'mobile-open' : ''}`}>
-          <a href="#products" onClick={() => setMobileOpen(false)}>Explore</a><a href="#how-it-works" onClick={() => setMobileOpen(false)}>How it works</a>{user && <a href="#library" onClick={() => setMobileOpen(false)}>My Library</a>}
-        </div>
-        <div className="nav-actions">{user ? <><span className="user-pill">{user.name.split(' ')[0]}</span>{user.role === 'ADMIN' && <button className="ghost-button" onClick={() => setAdminOpen(true)}>Admin</button>}<button className="ghost-button" onClick={handleLogout}><LogOut size={16} /> Sign out</button></> : <><button className="ghost-button" onClick={() => setAuthMode('login')}>Log in</button><button className="primary-button" onClick={() => setAuthMode('register')}>Create account</button></>}</div>
-      </nav>
-
-      <section className="hero" id="top"><div className="hero-glow hero-glow-one" /><div className="hero-glow hero-glow-two" /><div className="hero-copy">
-        <div className="eyebrow"><span className="eyebrow-dot" /> Premium digital resources</div><h1>Useful knowledge, <span>ready when you are.</span></h1><p>Skillora turns practical guides, templates and focused learning resources into simple digital products you can access instantly and keep in your library.</p>
-        <div className="hero-actions"><a className="primary-button large" href="#products">Explore resources <ArrowRight size={18} /></a><a className="secondary-button large" href="#how-it-works">How it works</a></div>
-        <div className="trust-row"><span><Check size={15} /> Instant access</span><span><ShieldCheck size={15} /> Secure checkout</span><span><Sparkles size={15} /> Practical resources</span></div>
-      </div><div className="hero-card"><div className="hero-card-top"><span>SKILLORA LIBRARY</span><span>LIVE</span></div><div className="product-orbit"><div className="orbit-core">SK</div></div><h2>Build your own advantage.</h2><p>Focused resources designed to help you prepare, create and move forward without information overload.</p><div className="price-row"><strong>{products.length || '—'}</strong><span>resources available</span></div><a className="card-button" href="#products">Browse library <ArrowRight size={17} /></a></div></section>
-
-      <section className="section" id="products"><div className="section-heading"><div><div className="section-kicker">THE SKILLORA LIBRARY</div><h2>Small resources. Real progress.</h2></div><span className="catalog-count">{products.length} resources</span></div>{message && <div className="notice">{message}</div>}<div className="product-grid">
-        {products.length ? products.map((product, index) => <article className="product-card" key={product.id}><div className={`product-art art-${(index % 3) + 1}`}><span>{String(index + 1).padStart(2, '0')}</span><Sparkles size={24} /></div><div className="product-meta"><span>Digital resource</span><span>₹{(product.pricePaise / 100).toLocaleString('en-IN')}</span></div><h3>{product.title}</h3><p>{product.description}</p>{owned.has(product.id) ? <a className="card-link owned-link" href="#library"><Check size={17} /> In your library</a> : <button className="card-link" disabled={busy} onClick={() => buy(product)}>Get this resource <ArrowRight size={17} /></button>}</article>) : <div className="empty-state"><Sparkles size={24} /><h3>Preparing the library</h3><p>Add your first product from the admin dashboard and it will appear here.</p></div>}
-      </div></section>
-
-      <section className="how-section" id="how-it-works"><div className="section-kicker">HOW SKILLORA WORKS</div><h2>Simple for customers. Powerful behind the scenes.</h2><div className="steps"><div className="step"><span>01</span><h3>Discover</h3><p>Find a resource built around a real goal or problem.</p></div><div className="step"><span>02</span><h3>Checkout</h3><p>Pay securely through Razorpay in a few clicks.</p></div><div className="step"><span>03</span><h3>Access</h3><p>Your purchase is automatically attached to your account.</p></div></div></section>
-
-      {user && <section className="section library-section" id="library"><div className="section-heading"><div><div className="section-kicker">YOUR LIBRARY</div><h2>Everything you've unlocked.</h2></div></div>{purchases.length ? <div className="library-grid">{purchases.map((item) => <article className="library-card" key={item.id}><div className="library-icon"><Download size={21} /></div><div><h3>{item.product.title}</h3><p>Purchased {new Date(item.grantedAt).toLocaleDateString('en-IN')}</p></div><button className="secondary-button" onClick={() => api.downloadResource(item.product.id).catch((error) => setMessage(error instanceof Error ? error.message : 'Download failed.'))}>Download PDF</button></article>)}</div> : <div className="empty-state"><h3>Your library is waiting.</h3><p>Purchase a resource and it will appear here automatically.</p></div>}</section>}
-      <footer className="footer"><div className="brand"><span className="brand-mark">S</span><span>Skillora</span></div><p>Learn. Prepare. Grow.</p></footer>
-      {authMode && <AuthModal mode={authMode} onClose={() => setAuthMode(null)} onSuccess={(nextUser) => { setUser(nextUser); setAuthMode(null); }} />}
-    </main>
-  );
+  return <main className="app-shell">
+    <nav className="topbar"><a className="brand" href="#top"><span className="brand-mark">S</span><span>Skillora</span></a><button className="mobile-menu" onClick={() => setMobileOpen((value) => !value)} aria-label="Open navigation"><Menu size={21} /></button><div className={`nav-links ${mobileOpen ? 'mobile-open' : ''}`}><a href="#products" onClick={() => setMobileOpen(false)}>Explore</a><a href="#how-it-works" onClick={() => setMobileOpen(false)}>How it works</a>{user && <a href="#library" onClick={() => setMobileOpen(false)}>My Library</a>}</div><div className="nav-actions">{user ? <><span className="user-pill">{user.name.split(' ')[0]}</span>{user.role === 'ADMIN' && <button className="ghost-button" onClick={() => setAdminOpen(true)}>Admin</button>}<button className="ghost-button" onClick={handleLogout}><LogOut size={16} /> Sign out</button></> : <><button className="ghost-button" onClick={() => setAuthMode('login')}>Log in</button><button className="primary-button" onClick={() => setAuthMode('register')}>Create account</button></>}</div></nav>
+    <section className="hero" id="top"><div className="hero-glow hero-glow-one" /><div className="hero-glow hero-glow-two" /><div className="hero-copy"><div className="eyebrow"><span className="eyebrow-dot" /> Premium digital resources</div><h1>Useful knowledge, <span>ready when you are.</span></h1><p>Skillora turns practical guides, templates and focused learning resources into simple digital products you can access instantly and keep in your library.</p><div className="hero-actions"><a className="primary-button large" href="#products">Explore resources <ArrowRight size={18} /></a><a className="secondary-button large" href="#how-it-works">How it works</a></div><div className="trust-row"><span><Check size={15} /> Instant access</span><span><ShieldCheck size={15} /> Secure checkout</span><span><Sparkles size={15} /> Practical resources</span></div></div><div className="hero-card"><div className="hero-card-top"><span>SKILLORA LIBRARY</span><span>LIVE</span></div><div className="product-orbit"><div className="orbit-core">SK</div></div><h2>Build your own advantage.</h2><p>Focused resources designed to help you prepare, create and move forward without information overload.</p><div className="price-row"><strong>{products.length || '—'}</strong><span>resources available</span></div><a className="card-button" href="#products">Browse library <ArrowRight size={17} /></a></div></section>
+    <section className="section" id="products"><div className="section-heading"><div><div className="section-kicker">THE SKILLORA LIBRARY</div><h2>Small resources. Real progress.</h2></div><span className="catalog-count">{products.length} resources</span></div>{message && <div className="notice">{message}</div>}<div className="product-grid">{products.length ? products.map((product, index) => <article className="product-card" key={product.id}><div className={`product-art art-${(index % 3) + 1}`}><span>{String(index + 1).padStart(2, '0')}</span><Sparkles size={24} /></div><div className="product-meta"><span>Digital resource</span><span>₹{(product.pricePaise / 100).toLocaleString('en-IN')}</span></div><h3>{product.title}</h3><p>{product.description}</p>{owned.has(product.id) ? <a className="card-link owned-link" href="#library"><Check size={17} /> In your library</a> : <button className="card-link" disabled={busy} onClick={() => buy(product)}>Get this resource <ArrowRight size={17} /></button>}</article>) : <div className="empty-state"><Sparkles size={24} /><h3>Preparing the library</h3><p>Add your first product from the admin dashboard and it will appear here.</p></div>}</div></section>
+    <section className="how-section" id="how-it-works"><div className="section-kicker">HOW SKILLORA WORKS</div><h2>Simple for customers. Powerful behind the scenes.</h2><div className="steps"><div className="step"><span>01</span><h3>Discover</h3><p>Find a resource built around a real goal or problem.</p></div><div className="step"><span>02</span><h3>Checkout</h3><p>Pay securely through Razorpay in a few clicks.</p></div><div className="step"><span>03</span><h3>Access</h3><p>Your purchase is automatically attached to your account.</p></div></div></section>
+    {user && <section className="section library-section" id="library"><div className="section-heading"><div><div className="section-kicker">YOUR LIBRARY</div><h2>Everything you've unlocked.</h2></div></div>{purchases.length ? <div className="library-grid">{purchases.map((item) => <article className="library-card" key={item.id}><div className="library-icon"><Download size={21} /></div><div><h3>{item.product.title}</h3><p>Purchased {new Date(item.grantedAt).toLocaleDateString('en-IN')}</p></div><button className="secondary-button" onClick={() => api.downloadResource(item.product.id).catch((error) => setMessage(error instanceof Error ? error.message : 'Download failed.'))}>Download PDF</button></article>)}</div> : <div className="empty-state"><h3>Your library is waiting.</h3><p>Purchase a resource and it will appear here automatically.</p></div>}</section>}
+    <footer className="footer"><div className="brand"><span className="brand-mark">S</span><span>Skillora</span></div><p>Learn. Prepare. Grow.</p></footer>{authMode && <AuthModal mode={authMode} onClose={() => setAuthMode(null)} onSuccess={(nextUser) => { setUser(nextUser); setAuthMode(null); }} />}
+  </main>;
 }
-
-function AuthModal({ mode, onClose, onSuccess }: { mode: 'login' | 'register'; onClose: () => void; onSuccess: (user: User) => void }) {
-  const [name, setName] = useState(''); const [email, setEmail] = useState(''); const [password, setPassword] = useState(''); const [error, setError] = useState(''); const [loading, setLoading] = useState(false);
-  async function submit(event: FormEvent) { event.preventDefault(); setLoading(true); setError(''); try { const result = mode === 'login' ? await api.login(email, password) : await api.register(name, email, password); onSuccess(result.user); } catch (err) { setError(err instanceof Error ? err.message : 'Unable to continue.'); } finally { setLoading(false); } }
-  return <div className="modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}><div className="auth-modal"><button className="modal-close" onClick={onClose} aria-label="Close"><X size={20} /></button><div className="section-kicker">SKILLORA ACCOUNT</div><h2>{mode === 'login' ? 'Welcome back.' : 'Create your library.'}</h2><p>{mode === 'login' ? 'Sign in to access your purchases.' : 'Create an account so every purchase stays with you.'}</p><form onSubmit={submit}>{mode === 'register' && <label>Name<input value={name} onChange={(e) => setName(e.target.value)} required minLength={2} /></label>}<label>Email<input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required /></label><label>Password<input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} /></label>{error && <div className="form-error">{error}</div>}<button className="primary-button large" disabled={loading}>{loading ? 'Please wait…' : mode === 'login' ? 'Sign in' : 'Create account'}</button></form></div></div>;
-}
-
+function AuthModal({ mode, onClose, onSuccess }: { mode: 'login' | 'register'; onClose: () => void; onSuccess: (user: User) => void }) { const [name, setName] = useState(''); const [email, setEmail] = useState(''); const [password, setPassword] = useState(''); const [error, setError] = useState(''); const [loading, setLoading] = useState(false); async function submit(event: FormEvent) { event.preventDefault(); setLoading(true); setError(''); try { const result = mode === 'login' ? await api.login(email, password) : await api.register(name, email, password); onSuccess(result.user); } catch (err) { setError(err instanceof Error ? err.message : 'Unable to continue.'); } finally { setLoading(false); } } return <div className="modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}><div className="auth-modal"><button className="modal-close" onClick={onClose} aria-label="Close"><X size={20} /></button><div className="section-kicker">SKILLORA ACCOUNT</div><h2>{mode === 'login' ? 'Welcome back.' : 'Create your library.'}</h2><p>{mode === 'login' ? 'Sign in to access your purchases.' : 'Create an account so every purchase stays with you.'}</p><form onSubmit={submit}>{mode === 'register' && <label>Name<input value={name} onChange={(e) => setName(e.target.value)} required minLength={2} /></label>}<label>Email<input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required /></label><label>Password<input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} /></label>{error && <div className="form-error">{error}</div>}<button className="primary-button large" disabled={loading}>{loading ? 'Please wait…' : mode === 'login' ? 'Sign in' : 'Create account'}</button></form></div></div>; }
 createRoot(document.getElementById('root')!).render(<StrictMode><App /></StrictMode>);
