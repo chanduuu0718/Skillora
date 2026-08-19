@@ -35,7 +35,7 @@ export const api = {
     const response = await fetch(`${API_URL}/admin/products/${productId}/file`, { method: 'POST', credentials: 'include', body: form });
     const data = await response.json().catch(() => ({})); if (!response.ok) throw new Error(data.message ?? 'Upload failed.'); return data as { fileKey: string; message: string };
   },
-  adminDeletePdf: () => request<void>(`/admin/products/${arguments[0]}/file`, { method: 'DELETE' }),
+  adminDeletePdf: (productId: string) => request<void>(`/admin/products/${productId}/file`, { method: 'DELETE' }),
   adminPreviewResource: async (productId: string) => {
     const response = await fetch(`${API_URL}/admin/products/${productId}/preview`, { credentials: 'include' });
     if (!response.ok) { const data = await response.json().catch(() => ({})); throw new Error(data.message ?? 'Preview failed.'); }
